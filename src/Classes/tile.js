@@ -6,3 +6,10 @@ class Tile {
         this.stage = 0;//0, 1
     }
 }
+
+class Vector2 {
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+    }
+}

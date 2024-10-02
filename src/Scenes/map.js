@@ -5,7 +5,7 @@ class MapScene extends Phaser.Scene {
     map_width = 20;
     map_height = 15;
     tile_grid = Array.apply(0, Array(this.map_height)).map(e => Array(this.map_width));
-    frequency = .3;//.2
+    frequency = .2;//.2
 
     max_num = -1; //-1
     min_num = 1;//1
@@ -16,7 +16,7 @@ class MapScene extends Phaser.Scene {
 
     preload() {
         //Seed
-        noise.seed(8);//1
+        noise.seed(1);//1
 
         //Get noise for pos i, j
         for (let i = 0; i < this.map_width; i++){
@@ -45,11 +45,16 @@ class MapScene extends Phaser.Scene {
         let draw_size = my.gridsize;
         console.log(this.tile_grid);
 
+        let queue = [];
+        queue.push(new Vector2(0 ,0));
         //Pass one get basic tiles
             //For each tile
-        for (let i = 0; i < this.map_width; i++){//X
-            for (let j = 0; j < this.map_height; j++){ //(((1 - this.tile_grid[j][i]) / 2) * 255) //Y
-
+        //for (let i = 0; i < this.map_width; i++){//X
+            //for (let j = 0; j < this.map_height; j++){ //(((1 - this.tile_grid[j][i]) / 2) * 255) //Y
+        while (queue.length > 0) {
+                let cur_pair = queue.pop();
+                let i = cur_pair.x;
+                let j = cur_pair.y;
                 //Setting vars
                 let key = this.tile_image_keys[this.steps -1];
                 let cur_tile = this.tile_grid[j][i];
@@ -58,7 +63,6 @@ class MapScene extends Phaser.Scene {
                 if (cur_tile.step === -1) {
                     cur_tile.step = this.getStep(cur_tile.noise_val);
                 }
-                key = this.tile_image_keys[cur_tile.step];
 
                 //Determine sprite
                 let L = NaN;
@@ -71,47 +75,72 @@ class MapScene extends Phaser.Scene {
                 let BL = NaN;
                 //Get positional dif of left tile
                 if (i !== 0){
-                    L = Math.sign(this.getStep(this.tile_grid[j][i-1].noise_val) - cur_tile.step);
+                    L = (this.getStep(this.tile_grid[j][i-1].noise_val) - cur_tile.step);
                     if (this.tile_grid[j][i-1].step === -1) {
+                        queue.push(new Vector2(i-1, j));
                         this.tile_grid[j][i - 1].step = cur_tile.step + L;
                     } else {
-                        L = Math.sign(this.tile_grid[j][i-1].step - cur_tile.step);
+                        L = (this.tile_grid[j][i-1].step - cur_tile.step);
                     }
                 } else {
                     L = 0;
                 }
 
+            if (L === -2) {
+                queue.push(new Vector2(i-1, j));
+                this.tile_grid[j][i - 1].step = cur_tile.step - 1;
+                L = -1;
+            } else if (L === 2) {
+                queue.push(new Vector2(i, j));
+                cur_tile.step = cur_tile.step + 1;
+                L = 1;
+            }
+
                 //Get pos dif of top tile
                 if (j !== 0){
-                    T = Math.sign(this.getStep(this.tile_grid[j-1][i].noise_val) - cur_tile.step);
+                    T = (this.getStep(this.tile_grid[j-1][i].noise_val) - cur_tile.step);
                     if (this.tile_grid[j-1][i].step === -1){
+                        queue.push(new Vector2(i, j-1));
                         this.tile_grid[j-1][i].step = cur_tile.step + T;
                     } else {
-                        T = Math.sign(this.tile_grid[j-1][i].step - cur_tile.step);
+                        T = (this.tile_grid[j-1][i].step - cur_tile.step);
                     }
                 } else {
                     T = 0;
                 }
 
+            if (T === -2) {
+                queue.push(new Vector2(i, j-1));
+                this.tile_grid[j-1][i].step = cur_tile.step - 1;
+                T = -1;
+            } else if (T === 2) {
+                queue.push(new Vector2(i, j));
+                cur_tile.step = cur_tile.step + 1;
+                T = 1;
+            }
+
                 //TL corner
                 if (L === T) { // orthog are same, make corner same
                     TL = L;
-                    if (i !== 0 && j !== 0 && this.tile_grid[j-1][i-1].step === -1) {
+                    if (i !== 0 && j !== 0) {
                         this.tile_grid[j-1][i-1].step = cur_tile.step + TL;
+                        queue.push(new Vector2(i-1, j-1));
                     }
                 } else if (Math.abs(L - T) === 2) { // one up and one down, orientation doesn't matter?
                     TL = 0;
                     if (i !== 0 && j !== 0 && this.tile_grid[j-1][i-1].step === -1) { //hmm
+                        queue.push(new Vector2(i-1, j-1));
                         this.tile_grid[j-1][i-1].step = cur_tile.step + TL;
                     }
                 } else { //dif is one, take its val
                     if (i === 0 || j === 0) {
                         TL = 0;
                     } else if (this.tile_grid[j-1][i-1].step === -1) {
-                        TL = Math.sign( this.getStep(this.tile_grid[j-1][i-1].noise_val) - cur_tile.step);
+                        TL = ( this.getStep(this.tile_grid[j-1][i-1].noise_val) - cur_tile.step);
+                        queue.push(new Vector2(i-1, j-1));
                         this.tile_grid[j-1][i-1].step = cur_tile.step + TL;
                     } else {
-                        TL = Math.sign(this.getStep(this.tile_grid[j-1][i-1].noise_val) - cur_tile.step);
+                        TL = (this.getStep(this.tile_grid[j-1][i-1].noise_val) - cur_tile.step);
                         if (TL === 1) {
                             TL = Math.max(L, T);
                         } else if (TL === -1) {
@@ -121,10 +150,21 @@ class MapScene extends Phaser.Scene {
 
                 }
 
+            if (TL === -2) {
+                queue.push(new Vector2(i-1, j-1));
+                this.tile_grid[j-1][i-1].step = cur_tile.step - 1;
+                TL = -1;
+            } else if (TL === 2) {
+                queue.push(new Vector2(i, j));
+                cur_tile.step = cur_tile.step + 1;
+                TL = 1;
+            }
+
                 //Get pos dif of right tile
                 if (i < this.map_width - 1){
-                    R = Math.sign(this.getStep(this.tile_grid[j][i+1].noise_val) - cur_tile.step);
+                    R = (this.getStep(this.tile_grid[j][i+1].noise_val) - cur_tile.step);
                     if (this.tile_grid[j][i+1].step === -1){
+                        queue.push(new Vector2(i+1, j));
                         this.tile_grid[j][i+1].step = cur_tile.step + R;
                      } else {
                          R = Math.sign(this.tile_grid[j][i+1].step - cur_tile.step);
@@ -133,27 +173,38 @@ class MapScene extends Phaser.Scene {
                     R = 0;
                 }
 
+                if (R === -2) {
+                    queue.push(new Vector2(i+1, j));
+                    this.tile_grid[j][i+1].step = cur_tile.step - 1;
+                    R = -1;
+                } else if (R === 2) {
+                    queue.push(new Vector2(i, j));
+                    cur_tile.step = cur_tile.step + 1;
+                    R = 1;
+                }
+
                 //TR corner
                  if (R === T) { // orthog are same, make corner same
                      TR = R;
                      if (i < this.map_width - 1 && j !== 0 && this.tile_grid[j-1][i+1].step === -1) {
                          this.tile_grid[j-1][i+1].step = cur_tile.step + TR;
-                         //console.log(i + " " + j + " " + cur_tile.step + " " + T + " " + R);
-                         //console.log(this.tile_grid[j-1][i+1].step);
+                         queue.push(new Vector2(i+1, j-1));
                      }
                 } else if (Math.abs(R - T) === 2) { // one up and one down, orientation doesn't matter?
                      TR = 0;
                      if (i < this.map_width - 1 && j !== 0 && this.tile_grid[j-1][i+1].step === -1) { //hmm
+                         queue.push(new Vector2(i+1, j-1));
                          this.tile_grid[j-1][i+1].step = cur_tile.step + TR;
                      }
                 } else { //dif is one, take its val
                     if (i === this.map_width - 1 || j === 0) {
                         TR = 0;
                      } else if (this.tile_grid[j-1][i+1].step === -1) {
-                          TR = Math.sign(this.getStep(this.tile_grid[j-1][i+1].noise_val) - cur_tile.step);
+                          TR = (this.getStep(this.tile_grid[j-1][i+1].noise_val) - cur_tile.step);
                           this.tile_grid[j-1][i+1].step = cur_tile.step + TR;
-                      } else {
-                        TR = Math.sign(this.getStep(this.tile_grid[j-1][i+1].noise_val) - cur_tile.step);
+                          queue.push(new Vector2(i+1, j-1));
+                    } else {
+                        TR = (this.getStep(this.tile_grid[j-1][i+1].noise_val) - cur_tile.step);
                         if (TR === 1) {
                             TR = Math.max(R, T);
                         } else if (TR === -1) {
@@ -162,23 +213,37 @@ class MapScene extends Phaser.Scene {
                       }
                 }
 
+                if (TR === -2) {
+                    this.tile_grid[j-1][i+1].step = cur_tile.step - 1;
+                    queue.push(new Vector2(i+1, j-1));
+                    TR = -1;
+                }  else if (TR === 2) {
+                    queue.push(new Vector2(i, j));
+                    cur_tile.step = cur_tile.step + 1;
+                    TR = 1;
+                }
+
                 //Get pos dif of bottom tile
                 if (j < this.map_height - 1){
-                    B = Math.sign(this.getStep(this.tile_grid[j+1][i].noise_val) - cur_tile.step);
+                    B = (this.getStep(this.tile_grid[j+1][i].noise_val) - cur_tile.step);
                     if (this.tile_grid[j+1][i].step === -1){
+                        queue.push(new Vector2(i, j+1));
                         this.tile_grid[j+1][i].step = cur_tile.step + B;
                      } else {
-                         B = Math.sign(this.tile_grid[j+1][i].step - cur_tile.step);
-                        if (i === 0 && j === 5) {
-                            console.log("spooky " +B + " " + this.tile_grid[j+1][i].step + " " + cur_tile.step);
-                        }
+                         B = (this.tile_grid[j+1][i].step - cur_tile.step);
                      }
                 } else {
                     B = 0;
                 }
 
-                if (i === 0 && j === 5) {
-                    console.log("spooky" +B + " " + this.tile_grid[j+1][i].step + " " + cur_tile.step);
+                if (B === -2) {
+                    queue.push(new Vector2(i, j+1));
+                    this.tile_grid[j+1][i].step = cur_tile.step - 1;
+                    B = -1;
+                }  else if (B === 2) {
+                    queue.push(new Vector2(i, j));
+                    cur_tile.step = cur_tile.step + 1;
+                    B = 1;
                 }
 
                 //BL corner
@@ -186,20 +251,23 @@ class MapScene extends Phaser.Scene {
                     BL = L;
                     if (i > 0 && j < this.map_height - 1 && this.tile_grid[j+1][i-1].step === -1) {
                         this.tile_grid[j+1][i-1].step = cur_tile.step + BL;
+                        queue.push(new Vector2(i-1, j+1));
                     }
                 } else if (Math.abs(L - B) === 2) { // one up and one down, orientation doesn't matter?
                     BL = 0;
                     if (i !== 0 && j < this.map_height - 1 && this.tile_grid[j+1][i-1].step === -1) { //hmm
                         this.tile_grid[j+1][i-1].step = cur_tile.step + BL;
+                        queue.push(new Vector2(i-1, j+1));
                     }
                 } else { //dif is one, take its val
                     if (i === 0 || j === this.map_height - 1) {
                         BL = 0;
                     } else if (this.tile_grid[j+1][i-1].step === -1) {
-                        BL = Math.sign(this.getStep(this.tile_grid[j+1][i-1].noise_val) - cur_tile.step);
+                        BL = (this.getStep(this.tile_grid[j+1][i-1].noise_val) - cur_tile.step);
                         this.tile_grid[j+1][i-1].step = cur_tile.step + BL;
+                        queue.push(new Vector2(i-1, j+1));
                     } else {
-                        BL = Math.sign(this.getStep(this.tile_grid[j+1][i-1].noise_val) - cur_tile.step);
+                        BL = (this.getStep(this.tile_grid[j+1][i-1].noise_val) - cur_tile.step);
                         if (BL === 1) {
                             BL = Math.max(L, B);
                         } else if (BL === -1) {
@@ -208,54 +276,66 @@ class MapScene extends Phaser.Scene {
                     }
                 }
 
+                if (BL === -2) {
+                    this.tile_grid[j+1][i-1].step = cur_tile.step - 1;
+                    queue.push(new Vector2(i-1, j+1));
+                    BL = -1;
+                }  else if (BL === 2) {
+                    queue.push(new Vector2(i, j));
+                    cur_tile.step = cur_tile.step + 1;
+                    BL = 1;
+                }
+
                 //BR corner
-
-                console.log(i + " " + j + " " + cur_tile.step + " " + B + " " + R);
-
-                if (R === B) { // orthog are same, make corner same
+                if (Math.sign(R) === Math.sign(B)) { // orthog are same, make corner same
                     BR = R;
                     if (i < this.map_width - 1 && j < this.map_height - 1 && this.tile_grid[j+1][i+1].step === -1) {
-                        this.tile_grid[j+1][i+1].step = cur_tile.step + BR;
+                        queue.push(new Vector2(i+1, j+1));
+                        this.tile_grid[j+1][i+1].step = cur_tile.step + Math.sign(BR);
                     }
-                } else if (Math.abs(R - B) === 2) { // one up and one down, orientation doesn't matter?
+                } else if (Math.abs(Math.sign(R) - Math.sign(B)) === 2) { // one up and one down, orientation doesn't matter?
                      BR = 0;
                      if (i < this.map_width - 1 && j < this.map_height - 1 && this.tile_grid[j+1][i+1].step === -1) { //hmm
+                         queue.push(new Vector2(i+1, j+1));
                          this.tile_grid[j+1][i+1].step = cur_tile.step + BR;
                      }
                  } else { //dif is one, take its val
                      if (i === this.map_width - 1 || j === this.map_height - 1) {
                          BR = 0;
                      } else if (this.tile_grid[j+1][i+1].step === -1) {
-                         BR = Math.sign(this.getStep(this.tile_grid[j+1][i+1].noise_val) - cur_tile.step);
-                         if (BR === 1) {
-                              BR = Math.max(R, B);
-                          } else if (BR === -1) {
-                              BR = Math.min(R, B);
+                         BR = (this.getStep(this.tile_grid[j+1][i+1].noise_val) - cur_tile.step);
+                         if (Math.sign(BR) === 1) {
+                              BR = Math.max(Math.sign(R), Math.sign(B));
+                          } else if (Math.sign(BR) === -1) {
+                              BR = Math.min(Math.sign(R), Math.sign(B));
                           }
-                         this.tile_grid[j+1][i+1].step = cur_tile.step + BR;
+                         queue.push(new Vector2(i+1, j+1));
+                         this.tile_grid[j+1][i+1].step = cur_tile.step + Math.sign(BR);
                      } else {
-                         BR = Math.sign(this.getStep(this.tile_grid[j+1][i+1].noise_val) - cur_tile.step);
+                         BR = (this.getStep(this.tile_grid[j+1][i+1].noise_val) - cur_tile.step);
                      }
                  }
-                console.log(BR);
 
+                if (BR === -2) {
+                    queue.push(new Vector2(i+1, j+1));
+                    this.tile_grid[j+1][i+1].step = cur_tile.step -1;
+                    BR = -1;
+                }  else if (BR === 2) {
+                    queue.push(new Vector2(i, j));
+                    cur_tile.step = cur_tile.step + 1;
+                    BR = 1;
+                }
 
-
-                // if (this.tile_grid[13][2].step !== -1) {
-                //     console.log(j + " " + i);
-                //     console.log(cur_tile.noise_val);
-                //     console.log(cur_tile.step);
-                //     console.log(this.tile_grid[13][2].step);
-                // }
 
 
                 //
-                let new_tile = this.add.sprite(i * 64, j*64, key + "O");
+            key = this.tile_image_keys[cur_tile.step];
+            let new_tile = this.add.sprite(i * 64, j*64, key + "O");
                 //let rect = this.add.rectangle(i * draw_size, j*draw_size, draw_size, draw_size, Phaser.Display.Color.GetColor((((1 - this.tile_grid[j][i].noise_val) / 2) * 255), (((1 - this.tile_grid[j][i].noise_val) / 2) * 255), (((1 - this.tile_grid[j][i].noise_val) / 2) * 255)));//(16777215 * this.tile_grid[j][i])
 
 
             }
-        }
+        //}
 
         console.log(this);
     }
@@ -268,6 +348,14 @@ class MapScene extends Phaser.Scene {
     //Gets step
     getStep(noise_level) {
         return Math.min(Math.floor(((noise_level - this.min_num) / this.threshold)), this.steps - 1)
+    }
+
+    //Make sure no +2 or -2 in adjacent
+    validateTile(pos) {
+        let L = 0;
+        if (x > 0) {
+            L = this.tile_grid[j][i-1].step - tile_grid[j][i-1].step
+        }
     }
 
 }
