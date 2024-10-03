@@ -1,51 +1,40 @@
-class MapScene extends Phaser.Scene {
+class Map2Scene extends Phaser.Scene {
     constructor() {
-        super("mapScene")
+        super("map2Scene")
     }
     map_width = 40;
     map_height = 30;
-    tile_grid = Array.apply(0, Array(this.map_height)).map(e => Array(this.map_width));
+    steps = 5; //water, sand, grass, swamp
+    tile_map = new TileMap(this.map_width, this.map_height, this.steps);
     frequency = .18;//.2
+    rectMode = false;
 
     max_num = -1; //-1
     min_num = 1;//1
-    steps = 5; //water, sand, grass, swamp
     threshold = (this.max_num - this.min_num) / this.steps;
-    bounds_of_tiles = Array.apply(null, Array(this.step));//array of vals to correlate with each tile, step(x) relates to noiseval < b_o_t(x)
-    tile_image_keys = ["water", "water", "sand", "grass", "swamp", "swamp"];
+    tile_image_keys = ["water", "water", "sand", "grass", "swamp"];
 
     preload() {
         //Seed
-        noise.seed(2);//1
-
-        //Get noise for pos i, j
-        for (let i = 0; i < this.map_width; i++){
-            for (let j = 0; j < this.map_height; j++){
-                let cur_noise = noise.perlin2(i * this.frequency, j * this.frequency);
-                this.tile_grid[j][i] = new Tile(cur_noise);
-                if (cur_noise < this.min_num) {
-                    this.min_num = cur_noise;
-                } else if (cur_noise > this.max_num) {
-                    this.max_num = cur_noise;
-                }
-            }
+        this.seed = 3;
+        //Noise for grid
+        this.tile_map.populateGrid(this.seed, this.frequency);
+        if (this.rectMode) {
+            my.gridsize = 64;
         }
-
-        //Get tile val bounds
-        //this.bounds_of_tiles[this.steps - 1] = this.max_num;
-        this.threshold = (this.max_num - this.min_num) / this.steps;
-        //for (let i = this.steps - 1; i > 0 - 1; i--){
-        //    this.bounds_of_tiles[(this.steps - 1) - i] = this.max_num - (i * step_size); // y = mx +b => step_bound = max - step_size(step) => step = (max - step_bound)/step_size
-        //}                                                                               //((.506 - )
     }
 
     create() {
         this.camera = this.cameras.main;
         this.camera.setZoom(.25, .25).setScroll(this.map_width * my.gridsize / 2, this.map_height * my.gridsize / 2);
-        console.log(this.tile_grid);
+        console.log(this.tile_map);
 
         this.firstPass();
-        this.secondPass();
+        if (!this.rectMode) {
+            this.tile_map.populateAdjacencies();
+            this.secondPass();
+        }
+
 
         console.log(this);
     }
@@ -56,20 +45,93 @@ class MapScene extends Phaser.Scene {
     }
 
     //Gets step
-    getStep(noise_level) {
-        return Math.min(Math.floor(((noise_level - this.min_num) / this.threshold)), this.steps - 1)
-    }
-
-    //Make sure no +2 or -2 in adjacent
-    validateTile(pos) {
-        let L = 0;
-        if (x > 0) {
-            L = this.tile_grid[j][i-1].step - tile_grid[j][i-1].step
+    //Just sets base steps for all tiles
+    firstPass() {
+        for (let i = 0; i < this.map_width; i++) {//X
+            for (let j = 0; j < this.map_height; j++) {
+                this.tile_map.giveStep(i, j);
+                //let key = this.tile_image_keys[this.tile_map.getStep(i, j)];
+                //let new_tile = this.add.sprite(i * 64, j*64, key + "O");
+                if (this.rectMode) {
+                    let rect = this.add.rectangle(i * my.gridsize, j* my.gridsize, my.gridsize, my.gridsize, Phaser.Display.Color.GetColor((((1 - this.tile_map.grid[j][i].noise_val) / 2) * 255), (((1 - this.tile_map.grid[j][i].noise_val) / 2) * 255), (((1 - this.tile_map.grid[j][i].noise_val) / 2) * 255)));//(16777215 * this.tile_grid[j][i])
+                }
+            }
         }
     }
 
+    //Evens out less even changes, e.g. tiles adjacent when the step dif is > 2, with a better tileset I could ignore this
+    secondPass() {
+        //let test_vec = this.tile_map.ohGodOhNoAhh(-1);
+        // while (test_vec !== null) {
+        //     let cur_tile = this.tile_map.grid[test_vec.y][test_vec.x];
+        //     for (let m = 0; m < 9; m++) {
+        //         let adj_val = cur_tile.adjacencies[m];
+        //         if (adj_val < -1) {
+        //             let adj_vec = test_vec.add(cur_tile.getAdjVec(m));
+        //              //Get tile at adj
+        //              let adj_tile = this.tile_map.grid[adj_vec.y][adj_vec.x];
+        //              //Push it up
+        //              adj_tile.step += 1;
+        //             this.tile_map.updateAllAdjacenciesHelp(adj_vec.x, adj_vec.y);
+        //             console.log("hi")
+        //         }
+        //     }
+        //
+        //     test_vec = this.tile_map.ohGodOhNoAhh(-1);
+        // }
+        let queue = [];
+        for (let k = 0; k < this.map_width; k++){//X
+            for (let l = 0; l < this.map_height; l++) {
+                queue.push(new Vector2(k, l));
+                while (queue.length > 0) {
+                    let cur_pos = queue.pop();
+                    let i = cur_pos.x;
+                    let j = cur_pos.y;
+                    let cur_tile = this.tile_map.grid[j][i];
+
+                    for (let m = 0; m < 9; m++) {
+                        this.tile_map.updateAdjacencies(i, j);
+
+                        let adj_val = cur_tile.adjacencies[m];
+                        if (adj_val < -1) {
+                            let adj_vec = cur_pos.add(cur_tile.getAdjVec(m));
+                             //Get tile at adj
+                             let adj_tile = this.tile_map.grid[adj_vec.y][adj_vec.x];
+                             //Push it up
+                             adj_tile.step += 1;
+                             //Queue
+                             queue.push(adj_vec);
+                            this.tile_map.updateAdjacencies(adj_vec.x, adj_vec.y);
+                        }
+                    }
+                    let key = this.tile_image_keys[cur_tile.step];
+                    let new_tile = this.add.sprite(i * my.gridsize, j*my.gridsize, key + "O");
+                }
+
+            }
+        }
+    }
+
+    //Fix big jumps between tiles
+    // applySecondPassRules(cur_pos, cur_tile, m, queue) {
+    //     let  j = cur_pos.y;
+    //     let i = cur_pos.x;
+    //     let adj_val = cur_tile.adjacencies[m];
+    //     if (adj_val > 1) {
+    //         this.tile_map.grid[j][i].step += 1;
+    //         this.tile_map.updateAllAdjacenciesHelp(i, j);
+    //         queue.push(cur_pos);
+    //     } else if (adj_val < -1) {
+    //         let lower_tile = cur_tile.getAdjVec(m);
+    //         console.log(i + " " + j + " " + m + " " + cur_tile.step + " " + adj_val);
+    //         queue.push(new Vector2(cur_pos.x + lower_tile.x, cur_pos.y + lower_tile.y));
+    //         this.tile_map.grid[i + lower_tile.x][j + lower_tile.y].step += 1;
+    //         this.tile_map.updateAllAdjacenciesHelp(i + lower_tile.x, j + lower_tile.y);
+    //     }
+    // }
+
     //First pass, basic map
-    firstPass() {
+    oldfirstPass() {
         let queue = [];
         queue.push(new Vector2(0 ,0));
         //Pass one get basic tiles
@@ -281,7 +343,7 @@ class MapScene extends Phaser.Scene {
 
     }
 
-    secondPass() {
+    oldsecondPass() {
         let queue = []
         for (let k = 0; k < this.map_width; k++){//X
             for (let l = 0; l < this.map_height; l++) {
@@ -392,7 +454,6 @@ class MapScene extends Phaser.Scene {
 
                     let key = this.tile_image_keys[cur_tile.step];
                     let new_tile = this.add.sprite(i * 64, j*64, key + "O");
-                    //let rect = this.add.rectangle(i * my.gridsize, j* my.gridsize, my.gridsize, my.gridsize, Phaser.Display.Color.GetColor((((1 - this.tile_grid[j][i].noise_val) / 2) * 255), (((1 - this.tile_grid[j][i].noise_val) / 2) * 255), (((1 - this.tile_grid[j][i].noise_val) / 2) * 255)));//(16777215 * this.tile_grid[j][i])
 
 
                 }

@@ -27,7 +27,7 @@ let config = {
     },
     width:  1200,//window.innerWidth * window.devicePixelRatio
     height: 700,//window.innerHeight * window.devicePixelRatio,
-    scene: [Load, MapScene]
+    scene: [Load, MapScene, Map2Scene]
 }
 
 var cursors;
