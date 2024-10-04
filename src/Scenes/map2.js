@@ -12,11 +12,12 @@ class Map2Scene extends Phaser.Scene {
     max_num = -1; //-1
     min_num = 1;//1
     threshold = (this.max_num - this.min_num) / this.steps;
-    tile_image_keys = ["water", "water", "sand", "grass", "swamp"];
+    tile_image_keys = ["water", "water", "sand", "grass", "dirt"];
 
     preload() {
         //Seed
-        this.seed = 3;
+        this.seed = Math.random();
+        this.rng = new Phaser.Math.RandomDataGenerator(this.seed);
         //Noise for grid
         this.tile_map.populateGrid(this.seed, this.frequency);
         if (this.rectMode) {
@@ -26,16 +27,18 @@ class Map2Scene extends Phaser.Scene {
 
     create() {
         this.camera = this.cameras.main;
-        this.camera.setZoom(.25, .25).setScroll(this.map_width * my.gridsize / 2, this.map_height * my.gridsize / 2);
+        this.camera.setZoom(1, 1).setScroll(-16, -16);
         console.log(this.tile_map);
 
         this.firstPass();
         if (!this.rectMode) {
             this.tile_map.populateAdjacencies();
             this.secondPass();
+            this.tile_map.calcBitmasks();
+            this.thirdPass();
         }
 
-
+        this.physics.world.setBounds(0, 0, this.map_width*my.gridsize, this.map_height*my.gridsize);
         console.log(this);
     }
 
@@ -61,56 +64,131 @@ class Map2Scene extends Phaser.Scene {
 
     //Evens out less even changes, e.g. tiles adjacent when the step dif is > 2, with a better tileset I could ignore this
     secondPass() {
-        //let test_vec = this.tile_map.ohGodOhNoAhh(-1);
-        // while (test_vec !== null) {
-        //     let cur_tile = this.tile_map.grid[test_vec.y][test_vec.x];
-        //     for (let m = 0; m < 9; m++) {
-        //         let adj_val = cur_tile.adjacencies[m];
-        //         if (adj_val < -1) {
-        //             let adj_vec = test_vec.add(cur_tile.getAdjVec(m));
-        //              //Get tile at adj
-        //              let adj_tile = this.tile_map.grid[adj_vec.y][adj_vec.x];
-        //              //Push it up
-        //              adj_tile.step += 1;
-        //             this.tile_map.updateAllAdjacenciesHelp(adj_vec.x, adj_vec.y);
-        //             console.log("hi")
-        //         }
-        //     }
-        //
-        //     test_vec = this.tile_map.ohGodOhNoAhh(-1);
-        // }
         let queue = [];
         for (let k = 0; k < this.map_width; k++){//X
             for (let l = 0; l < this.map_height; l++) {
                 queue.push(new Vector2(k, l));
-                while (queue.length > 0) {
-                    let cur_pos = queue.pop();
-                    let i = cur_pos.x;
-                    let j = cur_pos.y;
-                    let cur_tile = this.tile_map.grid[j][i];
-
-                    for (let m = 0; m < 9; m++) {
-                        this.tile_map.updateAdjacencies(i, j);
-
-                        let adj_val = cur_tile.adjacencies[m];
-                        if (adj_val < -1) {
-                            let adj_vec = cur_pos.add(cur_tile.getAdjVec(m));
-                             //Get tile at adj
-                             let adj_tile = this.tile_map.grid[adj_vec.y][adj_vec.x];
-                             //Push it up
-                             adj_tile.step += 1;
-                             //Queue
-                             queue.push(adj_vec);
-                            this.tile_map.updateAdjacencies(adj_vec.x, adj_vec.y);
-                        }
-                    }
-                    let key = this.tile_image_keys[cur_tile.step];
-                    let new_tile = this.add.sprite(i * my.gridsize, j*my.gridsize, key + "O");
+            }
+        }
+        while (queue.length > 0) {
+            let cur_pos = queue.pop();
+            let i = cur_pos.x;
+            let j = cur_pos.y;
+            let cur_tile = this.tile_map.grid[j][i];
+            this.tile_map.updateAdjacencies(i, j);
+            for (let m = 0; m < 9; m++) {
+                let adj_val = cur_tile.adjacencies[m];
+                if (adj_val < -1) {
+                    let adj_vec = cur_pos.add(cur_tile.getAdjVec(m));
+                    //Get tile at adj
+                    let adj_tile = this.tile_map.grid[adj_vec.y][adj_vec.x];
+                    //Push it up
+                    adj_tile.step += 1;
+                    //Queue
+                    queue.push(adj_vec);
                 }
-
             }
         }
     }
+
+    //Draws correct tiling for tiles, and draws decorations, roads and landmarks
+    thirdPass() {
+        for (let i = 0; i < this.map_width; i++) {
+            for (let j = 0; j < this.map_height; j++) {
+                let curTile = this.tile_map.grid[j][i];
+                let keyAndAngle = this.getCorrectTiling(curTile);
+                let key = this.tile_image_keys[curTile.step];
+                let new_tile = this.add.sprite(i * my.gridsize, j*my.gridsize, key + keyAndAngle[0]);
+                new_tile.angle = keyAndAngle[1];
+
+                //Draw decoration or landmark
+                //5% chance to draw deco, if draw deco 46% deco1, 46% deco2, 8% landmark, but only if not water
+                if (this.rng.integerInRange(0, 19) === 19) {
+                    let deco = this.rng.integerInRange(0, 99);
+                    if (deco < 46) {
+                        let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, key + "Deco1");
+                    } else if (deco < 92) {
+                        let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, key + "Deco2");
+                    } else {
+                        if (key !== "water") {
+                            let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, "landmark");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //Gets correct sprite key and angle, from testing a tiny bit, a switch statement seems most optimal
+    getCorrectTiling(curTile) {
+        let angleAndKey = ["Full", 0];
+        if (this.tile_image_keys[curTile.step] === "water") {
+            return angleAndKey;
+        }
+
+        switch (curTile.bitmask) {
+            case 1:
+                angleAndKey[0] = "End";
+                angleAndKey[1] = -90;
+                break;
+            case 2:
+                angleAndKey[0] = "End";
+                break;
+            case 3:
+                angleAndKey[0] = "Corner";
+                angleAndKey[1] = 90;
+                break;
+            case 4:
+                angleAndKey[0] = "End";
+                angleAndKey[1] = 90;
+                break;
+            case 5:
+                angleAndKey[0] = "Long";
+                angleAndKey[1] = 90;
+                break;
+            case 6:
+                angleAndKey[0] = "Corner";
+                angleAndKey[1] = 180;
+                break;
+            case 7:
+                angleAndKey[0] = "Edge";
+                angleAndKey[1] = 180;
+                break;
+            case 8:
+                angleAndKey[0] = "End";
+                angleAndKey[1] = 180;
+                break;
+            case 9:
+                angleAndKey[0] = "Corner";
+                break;
+            case 10:
+                angleAndKey[0] = "Long";
+                break;
+            case 11:
+                angleAndKey[0] = "Edge";
+                angleAndKey[1] = 90;
+                break;
+            case 12:
+                angleAndKey[0] = "Corner";
+                angleAndKey[1] = -90;
+                break;
+            case 13:
+                angleAndKey[0] = "Edge";
+                break;
+            case 14:
+                angleAndKey[0] = "Edge";
+                angleAndKey[1] = -90;
+                break;
+            default:
+                break;
+        }
+
+
+
+
+        return angleAndKey
+    }
+
 
     //Fix big jumps between tiles
     // applySecondPassRules(cur_pos, cur_tile, m, queue) {

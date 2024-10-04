@@ -125,8 +125,8 @@ class TileMap {
         //Edges
     //L
         if (i !== 0) {
-            curTile.adjacencies[4] = this.grid[j][i-1].step - curTile.step;
-            this.grid[j][i-1].adjacencies[6] = curTile.step - this.grid[j][i-1].step;
+            curTile.adjacencies[3] = this.grid[j][i-1].step - curTile.step;
+            this.grid[j][i-1].adjacencies[5] = curTile.step - this.grid[j][i-1].step;
         }
     //T
         if (j !== 0) {
@@ -175,18 +175,24 @@ class TileMap {
 
     }
 
-    // ohGodOhNoAhh(match) {
-    //     for(let i = 0; i < this.width; i++) {
-    //         for (let j = 0; j < this.height; j++) {
-    //             for (let k = 0; k < 9; k++) {
-    //                 let check_val = this.grid[j][i].adjacencies[k];
-    //                 if (check_val < match) {
-    //                     return new Vector2(i, j);
-    //                 }
-    //             }
-    //         }
-    //     }
+    calcBitmasks() {
+        for (let i = 0; i < this.width; i++) {
+            for (let j = 0; j < this.height; j++) {
+                this.calcBitmask(i, j);
+            }
+        }
+    }
 
-    //    return null;
-    //}
+    /* Calcs a tiles tiling bitmask by (1 * upper) + (2 * right) + (4 * bottom) + (8*bottom)
+        An adjacent tile is 0 if a dif tile, 1 if same tile
+        Upper
+    Left Tile   Right
+        Bottom
+
+    Using wacky javascript booleans to get 0 or 1
+    */
+    calcBitmask(i, j) {
+        let curTile = this.grid[j][i];
+        curTile.bitmask = (1 * !curTile.adjacencies[1]) + (2* !curTile.adjacencies[5]) + (4* !curTile.adjacencies[7]) + (8* !curTile.adjacencies[3]);
+    }
 }
