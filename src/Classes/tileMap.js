@@ -15,7 +15,7 @@ class TileMap {
         for (let i = 0; i < this.width; i++){
             for (let j = 0; j < this.height; j++){
                 let cur_noise = noise.perlin2(i * frequency, j * frequency);
-                this.grid[j][i] = new Tile(cur_noise);
+                this.grid[j][i] = cur_noise;
                 if (cur_noise < this.min_num) {
                     this.min_num = cur_noise;
                 } else if (cur_noise > this.max_num) {
@@ -29,9 +29,9 @@ class TileMap {
 
     giveStep(i, j) {
         if (i >= 0 && i < this.width && j >= 0 && j < this.height) {
-            let tile = this.grid[j][i];
-            let step = this.findStep(tile.noise_val);
-            tile.step = step;
+            //this.grid[j][i];
+            let step = this.findStep(this.grid[j][i]);
+            this.grid[j][i] = step;
             return step;
         } else {
             return NaN;
