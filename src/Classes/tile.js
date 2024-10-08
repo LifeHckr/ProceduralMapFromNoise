@@ -8,8 +8,8 @@ class Tile {
         //I want to believe there is a better way to do tiling
         this.adjacencies = [ //difs
             NaN, NaN, NaN, //0, 1, 2, // TL, T, TR  //TL, T, TR, L, This, R, BL, B, BR
-            NaN, 0, NaN,   // 3, 4, 5 // L, this, R
-            NaN, NaN, NaN // 6, 7, 8  // BL, B, BR
+            NaN, 0, NaN,   // 3,   4 // L, skip, R
+            NaN, NaN, NaN // 5, 6, 7  // BL, B, BR
         ]
         this.bitmask = 255;
     }
@@ -26,28 +26,34 @@ class Tile {
     }
 
     //Returns a vector representing the pos change to get the coordinate change of the given adjacency
-    //Should probably be a lookup table
-    getAdjVec(adjIndex /*between 0 and 8*/) {
-        let new_vec = new Vector2(0, 0);
-        new_vec.x = (adjIndex % 3) - 1; //e.g. 0, 3, 6 -> left 1 (-1) 1, 4, 7 -> same col
-        new_vec.y = Math.floor((adjIndex - 3) / 3); //e.g. 0, 1, 2 -> up 1 (-1) 6, 7, 8 -> right 1 (+1)
-        return new_vec;
+    //Should probably be a lookup table --DONE
+    getAdjVec(adjIndex /*between 0 and 7*/) {
+        if (adjIndex < 0 || adjIndex > 7) {
+            throw new Error("Adjacency out of bonds must be [0,7]!");
+        }
+        switch (adjIndex) {
+            case 0:
+                return new Vector2(-1, -1);
+            case 1:
+                return new Vector2(0, -1);
+            case 2:
+                return new Vector2(1, -1);
+            case 3:
+                return new Vector2(-1, 0);
+            case 4:
+                return new Vector2(1, 0);
+            case 5:
+                return new Vector2(-1, 1);
+            case 6:
+                return new Vector2(0, 1);
+            case 7:
+                return new Vector2(1, 1);
+        }
     }
 
     //Gets the actual coords from the given position (pos)
-    getAdjCoords(adjIndex /*between 0 and 8*/, pos /*Vector2*/)  {
-        let new_vec = this.getAdjVec(adjIndex);
-        return pos.add(new_vec);
+    getAdjCoords(pos, adjIndex)  {
+        return pos.add(this.getAdjVec(adjIndex));
     }
 }
 
-class Vector2 {
-    constructor(x = 0, y = 0) {
-        this.x = x;
-        this.y = y;
-    }
-
-    add(vec) {
-        return new Vector2(this.x + vec.x, this.y + vec.y);
-    }
-}

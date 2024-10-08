@@ -30,10 +30,10 @@ let config = {
     scene: [Load, MapScene, Map2Scene]
 }
 
-var cursors;
+const cursors = {};
 
 const SCALE = 2.0;
-var my = {sprite: {}, text: {}, log: []};
+const my = {sprite: {}, text: {}, log: []};
 
 
 const game = new Phaser.Game(config);

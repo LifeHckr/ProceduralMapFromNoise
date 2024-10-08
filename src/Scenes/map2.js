@@ -48,43 +48,41 @@ class Map2Scene extends Phaser.Scene {
     create() {
         this.camera = this.cameras.main;
         this.camera.setZoom(1, 1).setScroll(-16, -16);
-        console.log(this.tile_map);
-
         this.firstPass();
+        console.log(structuredClone(this.tile_map.grid));
         if (!this.rectMode) {
-            this.tile_map.populateAdjacencies();
-            this.secondPass();
-            this.tile_map.calcBitmasks();
-            this.thirdPass();
+             this.secondPass();
+             console.log(this.tile_map);
+             this.thirdPass();
 
-            //Label for place names
-            my.sprite.landmarkLabel = this.add.text(10, 10, "" , {
-                color: "#fff",
-                stroke: "#000",
-                strokeThickness: 5
-            });
-            my.sprite.landmarkLabel.setScrollFactor(0, 0).setDepth(10);
+             //Label for place names
+             my.sprite.landmarkLabel = this.add.text(10, 10, "" , {
+                 color: "#fff",
+                 stroke: "#000",
+                 strokeThickness: 5
+             });
+             my.sprite.landmarkLabel.setScrollFactor(0, 0).setDepth(10);
 
-            //Set up physics
-            this.physics.world.setBounds(-my.gridsize/2, -my.gridsize/2, this.map_width*my.gridsize, this.map_height*my.gridsize);
-            my.sprite.player.setCollideWorldBounds(true);
-            this.physics.add.overlap(my.sprite.player, this.landmarkGroup, (player, landmark) => {
-                my.sprite.landmarkLabel.text = landmark.name;
-                this.landmarkTouching = true;
-            });
+             //Set up physics
+             this.physics.world.setBounds(-my.gridsize/2, -my.gridsize/2, this.map_width*my.gridsize, this.map_height*my.gridsize);
+             my.sprite.player.setCollideWorldBounds(true);
+             this.physics.add.overlap(my.sprite.player, this.landmarkGroup, (player, landmark) => {
+                 my.sprite.landmarkLabel.text = landmark.name;
+                 this.landmarkTouching = true;
+             });
         }
 
         console.log(this);
     }
 
     update() {
-        if (!this.rectMode) {
-            my.sprite.player.update();
+         if (!this.rectMode) {
+             my.sprite.player.update();
 
-            if (!this.landmarkTouching) {
-                my.sprite.landmarkLabel.text = "";
-            }
-            this.landmarkTouching = false;
+             if (!this.landmarkTouching) {
+                 my.sprite.landmarkLabel.text = "";
+             }
+             this.landmarkTouching = false;
         }
     }
 
@@ -111,19 +109,14 @@ class Map2Scene extends Phaser.Scene {
         }
         while (queue.length > 0) {
             let cur_pos = queue.pop();
-            let i = cur_pos.x;
-            let j = cur_pos.y;
-            let cur_tile = this.tile_map.grid[j][i];
-            this.tile_map.updateAdjacencies(i, j);
             //Find any adjacency with a discrepancy of >1, e.g. water next to a mountain
-            for (let m = 0; m < 9; m++) {
-                let adj_val = cur_tile.adjacencies[m];
+            for (let m = 0; m < 8; m++) {
+                let adj_val = this.tile_map.getAdjStepDif(cur_pos, m);
                 if (adj_val < -1) {
-                    let adj_vec = cur_pos.add(cur_tile.getAdjVec(m));
+                    let adj_vec = this.tile_map.getAdjCoords(cur_pos, m);
                     //Get tile at adj
-                    let adj_tile = this.tile_map.grid[adj_vec.y][adj_vec.x];
                     //Push its step up
-                    adj_tile.step += 1;
+                    this.tile_map.changeTileValAt(adj_vec, 1);
                     //Queue
                     queue.push(adj_vec);
                 }
@@ -135,9 +128,9 @@ class Map2Scene extends Phaser.Scene {
     thirdPass() {
         for (let i = 0; i < this.map_width; i++) {
             for (let j = 0; j < this.map_height; j++) {
-                let curTile = this.tile_map.grid[j][i];
-                let keyAndAngle = this.getCorrectTiling(curTile);
-                let key = this.tile_image_keys[curTile.step];
+                let cur_pos = new Vector2(i, j);
+                let keyAndAngle = this.getCorrectTiling(this.tile_map.calcBitmask(cur_pos), this.tile_map.getTileValAt(cur_pos));
+                let key = this.tile_image_keys[this.tile_map.getTileValAt(cur_pos)];
                 let new_tile = this.add.sprite(i * my.gridsize, j*my.gridsize, key + keyAndAngle[0]);
                 new_tile.angle = keyAndAngle[1];
                 if (key === "water") {
@@ -147,41 +140,41 @@ class Map2Scene extends Phaser.Scene {
                 }
 
 
-                //Draw decoration or landmark
-                //5% chance to draw deco, if draw deco 46% deco1, 46% deco2, 8% landmark, but only if not water
-                if (this.rng.integerInRange(0, 19) === 19) {
-                    let deco = this.rng.integerInRange(0, 99);
-                    if (deco < 46) {
-                        let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, key + "Deco1");
-                    } else if (deco < 92) {
-                        let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, key + "Deco2");
-                    } else {
-                        if (key !== "water") {
-                            let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, "landmark");
-                            this.physics.world.enable(new_deco, Phaser.Physics.Arcade.STATIC_BODY);
-                            this.landmarkGroup.add(new_deco);
-                            new_deco.name = this.generateNames(curTile);
-                            //Places player at first landmark
-                            if (!this.playerMade) {
-                                this.playerMade = true;
-                                my.sprite.player = new Player(this, i * my.gridsize, j*my.gridsize, "person");
-                                my.sprite.player.setDepth(4);
-                            }
-                        }
-                    }
-                }
+               //Draw decoration or landmark
+                 //5% chance to draw deco, if draw deco 46% deco1, 46% deco2, 8% landmark, but only if not water
+                 if (this.rng.integerInRange(0, 19) === 19) {
+                     let deco = this.rng.integerInRange(0, 99);
+                     if (deco < 46) {
+                         let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, key + "Deco1");
+                     } else if (deco < 92) {
+                         let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, key + "Deco2");
+                     } else {
+                         if (key !== "water") {
+                             let new_deco = this.add.sprite(i * my.gridsize, j*my.gridsize, "landmark");
+                             this.physics.world.enable(new_deco, Phaser.Physics.Arcade.STATIC_BODY);
+                             this.landmarkGroup.add(new_deco);
+                             new_deco.name = this.generateNames(this.tile_map.getTileValAt(cur_pos));
+                             //Places player at first landmark
+                             if (!this.playerMade) {
+                                 this.playerMade = true;
+                                 my.sprite.player = new Player(this, i * my.gridsize, j*my.gridsize, "person");
+                                 my.sprite.player.setDepth(4);
+                             }
+                         }
+                     }
+                 }
             }
         }
     }
 
     //Gets correct sprite key and angle, from testing a tiny bit, a switch statement seems most optimal
-    getCorrectTiling(curTile) {
+    getCorrectTiling(bitmask, step) {
         let angleAndKey = ["Full", 0];
-        if (this.tile_image_keys[curTile.step] === "water") {
+        if (this.tile_image_keys[step] === "water") {
             return angleAndKey;
         }
 
-        switch (curTile.bitmask) {
+        switch (bitmask) {
             case 1:
                 angleAndKey[0] = "End";
                 angleAndKey[1] = -90;
@@ -246,7 +239,7 @@ class Map2Scene extends Phaser.Scene {
 
     //generates place names based on tile, returns the name
     generateNames(cur_tile) {
-        return this.place_name_adjectives[this.rng.integerInRange(0, this.place_name_adjectives.length-1)] + " " +this.place_name_nouns[cur_tile.step][this.rng.integerInRange(0, this.place_name_nouns[cur_tile.step].length-1)];
+        return this.place_name_adjectives[this.rng.integerInRange(0, this.place_name_adjectives.length-1)] + " " +this.place_name_nouns[cur_tile][this.rng.integerInRange(0, this.place_name_nouns[cur_tile].length-1)];
     }
 
 
