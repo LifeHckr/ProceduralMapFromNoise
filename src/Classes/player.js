@@ -9,6 +9,7 @@ class Player extends Phaser.Physics.Arcade.Sprite {
         //Physics
         this.setBodySize(16, 16);
         scene.waterCollider = scene.physics.add.collider(this, scene.waterGroup);
+        this.setCollideWorldBounds(true);
 
     }
 

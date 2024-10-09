@@ -34,6 +34,7 @@ const cursors = {};
 
 const SCALE = 2.0;
 const my = {sprite: {}, text: {}, log: []};
+my.seed = Math.random();
 
 
 const game = new Phaser.Game(config);
