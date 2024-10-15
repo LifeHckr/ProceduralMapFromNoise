@@ -1,8 +1,8 @@
 class Map2Scene extends Phaser.Scene {
     constructor() {
         super("map2Scene");
-        this.map_width = 40;
-        this.map_height = 30;
+        this.map_width = 65;
+        this.map_height = 40;
         this.steps = 5; //water, sand, grass, swamp
         this.frequency = .07;//bigger number : more zoomed in
         this.rectMode = false;
@@ -57,6 +57,7 @@ class Map2Scene extends Phaser.Scene {
         this.camera.setZoom(1, 1).setScroll(-16, -16);
 
         //Make visual map-----------------------------------------------
+        console.log(structuredClone(this.tile_map.grid));
         this.firstPass();
         console.log(structuredClone(this.tile_map.grid));
 

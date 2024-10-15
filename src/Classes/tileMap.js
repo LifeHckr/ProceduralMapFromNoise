@@ -77,58 +77,6 @@ class TileMap {
         return Math.min(Math.floor(((noise_level - this.min_num) / this.threshold)), this.steps - 1);
     }
 
-    //REMOVE
-    updateAdjacencies(i, j) {
-        if (!this.populated) {
-            throw new Error("Grid has not been populated!");
-        }
-        let curTile = this.grid[j][i];
-        //Edges
-    //L
-        if (i !== 0) {
-            curTile.adjacencies[3] = this.grid[j][i-1].step - curTile.step;
-            this.grid[j][i-1].adjacencies[5] = curTile.step - this.grid[j][i-1].step;
-        }
-    //T
-        if (j !== 0) {
-            curTile.adjacencies[1] = this.grid[j-1][i].step - curTile.step;
-            this.grid[j-1][i].adjacencies[7] = curTile.step - this.grid[j-1][i].step;
-        }
-    //R
-        if (i !== this.width -1)  {
-            //Get right
-            curTile.adjacencies[5] = this.grid[j][i+1].step - curTile.step;
-            this.grid[j][i+1].adjacencies[3] = curTile.step - this.grid[j][i+1].step;
-        }
-    //B
-        if (j !== this.height - 1) {
-            curTile.adjacencies[7] = this.grid[j+1][i].step - curTile.step;
-            this.grid[j+1][i].adjacencies[1] = curTile.step - this.grid[j+1][i].step;
-        }
-
-        //Main stuff, since I do both, central tiles only need to get TR, R, BR, and B
-    //BR
-        if (i < this.width-1 && j < this.height-1) {
-            curTile.adjacencies[8] = this.grid[j+1][i+1].step - curTile.step;
-            this.grid[j+1][i+1].adjacencies[0] = curTile.step - this.grid[j+1][i+1].step;
-        }
-    //BL
-        if (i > 0 && j < this.height-1) {
-            curTile.adjacencies[6] = this.grid[j+1][i-1].step - curTile.step;
-            this.grid[j+1][i-1].adjacencies[2] = curTile.step - this.grid[j+1][i-1].step;
-        }
-    //TL
-        if (i > 0 && j > 0) {
-            curTile.adjacencies[0] = this.grid[j-1][i-1].step - curTile.step;
-            this.grid[j-1][i-1].adjacencies[8] = curTile.step - this.grid[j-1][i-1].step;
-        }
-    //TR
-        if (i < this.width-1 && j > 0) {
-            curTile.adjacencies[2] = this.grid[j-1][i+1].step - curTile.step;
-            this.grid[j-1][i+1].adjacencies[6] = curTile.step - this.grid[j-1][i+1].step;
-        }
-    }
-
     //Returns a vector representing the pos change to get the coordinate change of the given adjacency
     //Should probably be a lookup table --DONE
     /*
